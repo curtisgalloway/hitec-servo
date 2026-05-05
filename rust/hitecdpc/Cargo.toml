@@ -1,0 +1,18 @@
+[package]
+name = "hitecdpc"
+version = "0.1.0"
+edition = "2021"
+description = "Cross-platform Rust library for Hitec DPC digital servo programmers"
+keywords = ["hitec", "servo", "serial", "robotics"]
+license = "MIT"
+
+[dependencies]
+serialport = { version = "4", optional = true }
+thiserror = "2"
+
+[features]
+default = ["transport"]
+transport = ["dep:serialport"]
+
+[dev-dependencies]
+# no extra deps — all tests use the pure protocol functions
