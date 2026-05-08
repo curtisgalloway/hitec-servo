@@ -88,11 +88,19 @@ class DPC20Transport(Transport):
     DPC-20 / DPC-485 mode: STX/ETX framed packets over a standard COM port.
 
     Sends commands wrapped in the KSO3 outer frame (mux=7); reads responses
-    looking for STX/ETX frames with the kRs3 payload prefix (mux=11).
+    looking for STX/ETX frames with the kRs3/kVs3 payload prefix.
+
+    Older DPC-20 firmware responds with mux=11 and key kRs3.
+    Newer AT32-based firmware (2024+) responds with mux=9 and key kVs3.
+    Both are tried on every read.
     """
 
-    _READ_TIMEOUT = 0.1   # seconds per read attempt
+    _READ_TIMEOUT = 0.5   # seconds per read attempt (DPC-20 waits for servo before replying)
     _MAX_READ     = 256
+
+    # Response mux values to try, in preference order
+    _RESPONSE_MUXES = (9, P.MUX_RESPONSE)
+    _RESPONSE_KEYS  = (P.KEY_VS3, P.KEY_RS3)
 
     def __init__(
         self,
@@ -101,7 +109,8 @@ class DPC20Transport(Transport):
         four_pin: bool = False,
         series: str = "57",
     ) -> None:
-        self._ser = serial.Serial(port, baud, timeout=self._READ_TIMEOUT)
+        self._ser = serial.Serial(port, baud, timeout=self._READ_TIMEOUT,
+                                  dsrdtr=False, rtscts=False)
         self._four_pin = four_pin
         self._series = series
         self._connect()
@@ -120,9 +129,10 @@ class DPC20Transport(Transport):
             if not expect_reply:
                 return b""
             raw = self._ser.read(self._MAX_READ)
-            payload = P.parse_stxetx(raw, P.MUX_RESPONSE)
-            if payload is not None and payload[:4] == P.KEY_RS3:
-                return payload  # caller extracts data at offsets 4 and 5
+            for mux in self._RESPONSE_MUXES:
+                payload = P.parse_stxetx(raw, mux)
+                if payload is not None and payload[:4] in self._RESPONSE_KEYS:
+                    return payload  # caller extracts data at offsets 4 and 5
         return None
 
     def close(self) -> None:
@@ -144,13 +154,31 @@ class DPC20Transport(Transport):
         self._write(frame)
 
     def _connect(self) -> None:
+        # Toggle DTR to wake the AT32 firmware (new DPC-20 hardware requires this).
+        # C# SerialPort opens with DTR=False by default; pyserial opens with DTR=True,
+        # so the firmware never sees the rising edge it needs unless we assert it here.
+        self._ser.dtr = False
+        time.sleep(0.05)
+        self._ser.dtr = True
+        time.sleep(0.5)
+
         # Probe the adapter
         self._send_message(P.MSG_PROBE)
-        time.sleep(0.010)
+        time.sleep(0.15)
         raw = self._ser.read(self._MAX_READ)
 
-        payload = P.parse_stxetx(raw, P.MUX_HANDSHAKE)
-        if payload and payload[:4] in (P.KEY_IBR, P.KEY_IBW, P.KEY_IBU):
+        # Detect firmware generation from the probe response mux.
+        # New AT32 firmware (2024+) responds with mux=9 and kVs3 keys.
+        # Legacy firmware responds with mux=0 and kRs3 keys.
+        probe_payload = None
+        new_firmware = False
+        for mux in (9, P.MUX_HANDSHAKE):
+            probe_payload = P.parse_stxetx(raw, mux)
+            if probe_payload:
+                new_firmware = (mux == 9)
+                break
+
+        if probe_payload and probe_payload[:4] in (P.KEY_IBR, P.KEY_IBW, P.KEY_IBU):
             # Adapter is stuck in firmware-update mode; reset it
             self._ser.write(P.MSG_RESET)
             self._ser.dtr = False
@@ -175,7 +203,8 @@ class DPC20Transport(Transport):
             zero_follow = False
 
         self._send_message(mode_msg)
-        if zero_follow:
+        # New firmware hangs if given the zero-follow packet; skip it.
+        if zero_follow and not new_firmware:
             zero_pkt = P.stxetx_frame(
                 P.kso_wrapper(bytes([0x00]), four_pin=False, want_reply=False),
                 P.MUX_COMMAND,

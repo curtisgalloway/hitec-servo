@@ -93,7 +93,8 @@ KEY_APP   = b"kAPP"   # adapter ready after probe
 KEY_IBR   = b"kIBR"   # adapter in firmware-update mode (IBus Read)
 KEY_IBW   = b"kIBW"   # adapter in firmware-update mode (IBus Write)
 KEY_IBU   = b"kIBU"   # adapter in firmware-update mode (IBus Upgrade)
-KEY_RS3   = b"kRs3"   # servo response payload prefix
+KEY_RS3   = b"kRs3"   # servo response payload prefix (legacy firmware)
+KEY_VS3   = b"kVs3"   # servo response payload prefix (new AT32 firmware)
 
 # DPC-20 handshake sequence message strings
 MSG_PROBE   = b"KWAU"    # probe: sent to detect adapter
