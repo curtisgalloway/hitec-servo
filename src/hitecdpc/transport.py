@@ -95,7 +95,7 @@ class DPC20Transport(Transport):
     Both are tried on every read.
     """
 
-    _READ_TIMEOUT = 0.5   # seconds per read attempt (DPC-20 waits for servo before replying)
+    _READ_TIMEOUT = 2.0   # seconds per read attempt (AT32 firmware can take >500 ms to reply)
     _MAX_READ     = 256
 
     # Response mux values to try, in preference order
@@ -132,7 +132,7 @@ class DPC20Transport(Transport):
             for mux in self._RESPONSE_MUXES:
                 payload = P.parse_stxetx(raw, mux)
                 if payload is not None and payload[:4] in self._RESPONSE_KEYS:
-                    return payload  # caller extracts data at offsets 4 and 5
+                    return payload[4:]  # strip key prefix; return [cmd, addr, value, csum]
         return None
 
     def close(self) -> None:
@@ -143,8 +143,7 @@ class DPC20Transport(Transport):
     # ------------------------------------------------------------------
 
     def _write(self, data: bytes) -> None:
-        for b in data:
-            self._ser.write(bytes([b]))
+        self._ser.write(data)
         n_bits = len(data) * 11
         wait_us = n_bits * 1_000_000 // self._ser.baudrate + 1000
         time.sleep(wait_us / 1_000_000)
@@ -157,7 +156,9 @@ class DPC20Transport(Transport):
         # Toggle DTR to wake the AT32 firmware (new DPC-20 hardware requires this).
         # C# SerialPort opens with DTR=False by default; pyserial opens with DTR=True,
         # so the firmware never sees the rising edge it needs unless we assert it here.
+        # RTS is also cleared — raw tests confirmed this combination is required.
         self._ser.dtr = False
+        self._ser.rts = False
         time.sleep(0.05)
         self._ser.dtr = True
         time.sleep(0.5)
@@ -170,8 +171,10 @@ class DPC20Transport(Transport):
         # Detect firmware generation from the probe response mux.
         # New AT32 firmware (2024+) responds with mux=9 and kVs3 keys.
         # Legacy firmware responds with mux=0 and kRs3 keys.
+        # If the probe yields no parseable response, assume new firmware —
+        # sending the zero-follow packet to unknown/new firmware hangs the adapter.
         probe_payload = None
-        new_firmware = False
+        new_firmware = True
         for mux in (9, P.MUX_HANDSHAKE):
             probe_payload = P.parse_stxetx(raw, mux)
             if probe_payload:
