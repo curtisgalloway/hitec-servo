@@ -61,7 +61,9 @@ class HitecServo:
         if mode == "raw":
             self._transport: Transport = RawTransport(port, baud)
         elif mode == "dpc20":
-            self._transport = DPC20Transport(port, baud, four_pin=four_pin, series=series)
+            self._transport = DPC20Transport(
+                port, baud, four_pin=four_pin, series=series
+            )
         else:
             raise ValueError(f"Unknown mode {mode!r}; choose 'raw' or 'dpc20'")
         self._mode = mode
@@ -100,10 +102,10 @@ class HitecServo:
         if reg.is_16bit:
             hi = (value >> 8) & 0xFF
             lo = value & 0xFF
-            self._write_sram(reg.sram_addr,     hi)
+            self._write_sram(reg.sram_addr, hi)
             self._write_sram(reg.sram_addr + 1, lo)
             if persist and reg.ee_addr is not None:
-                self._write_ee(reg.ee_addr,     hi)
+                self._write_ee(reg.ee_addr, hi)
                 self._write_ee(reg.ee_addr + 1, lo)
         else:
             self._write_sram(reg.sram_addr, value)
@@ -167,9 +169,7 @@ class HitecServo:
         packet = P.servo_packet(cmd, addr, data)
         resp = self._transport.send(packet, expect_reply=True)
         if resp is None or len(resp) <= offset:
-            raise TimeoutError(
-                f"No response from servo (cmd=0x{cmd:02X} addr={addr})"
-            )
+            raise TimeoutError(f"No response from servo (cmd=0x{cmd:02X} addr={addr})")
         return resp[offset]
 
     # ------------------------------------------------------------------

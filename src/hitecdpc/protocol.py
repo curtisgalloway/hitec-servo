@@ -22,17 +22,17 @@ See docs/protocol.md for the full specification.
 from .crc import crc8
 
 # Command codes (ASCII letters)
-CMD_READ_8   = 0x61  # 'a' — read 8-bit SRAM register,  response at offset 4
-CMD_WRITE_8  = 0x62  # 'b' — write 8-bit SRAM register  (addr 0-127)
+CMD_READ_8 = 0x61  # 'a' — read 8-bit SRAM register,  response at offset 4
+CMD_WRITE_8 = 0x62  # 'b' — write 8-bit SRAM register  (addr 0-127)
 CMD_WRITE_EE = 0x64  # 'd' — write 8-bit EEPROM register (addr 128-255)
-CMD_READ_16  = 0x65  # 'e' — read 16-bit register,      response at offsets 4-5
-CMD_SET_POS  = 0x66  # 'f' — set servo position (16-bit PWM value)
+CMD_READ_16 = 0x65  # 'e' — read 16-bit register,      response at offsets 4-5
+CMD_SET_POS = 0x66  # 'f' — set servo position (16-bit PWM value)
 CMD_READ_VER = 0x67  # 'g' — read firmware version,     response at offset 4
 
 # STX/ETX mux values
-MUX_HANDSHAKE = 0   # STX=0x02, ETX=0x03 — probe packets
-MUX_COMMAND   = 7   # STX=0x09, ETX=0x0A — host→adapter
-MUX_RESPONSE  = 11  # STX=0x0D, ETX=0x0E — adapter→host
+MUX_HANDSHAKE = 0  # STX=0x02, ETX=0x03 — probe packets
+MUX_COMMAND = 7  # STX=0x09, ETX=0x0A — host→adapter
+MUX_RESPONSE = 11  # STX=0x0D, ETX=0x0E — adapter→host
 
 
 def servo_packet(cmd: int, addr: int, data: int) -> bytes:
@@ -75,7 +75,9 @@ def parse_stxetx(data: bytes, mux: int) -> bytes | None:
     return None
 
 
-def kso_wrapper(servo_bytes: bytes, four_pin: bool = False, want_reply: bool = True) -> bytes:
+def kso_wrapper(
+    servo_bytes: bytes, four_pin: bool = False, want_reply: bool = True
+) -> bytes:
     """
     Build the DPC-20 KSO3/KSO4 wrapper used by send_serial_packet().
 
@@ -89,17 +91,17 @@ def kso_wrapper(servo_bytes: bytes, four_pin: bool = False, want_reply: bool = T
 
 
 # Key strings in DPC-20 responses
-KEY_APP   = b"kAPP"   # adapter ready after probe
-KEY_IBR   = b"kIBR"   # adapter in firmware-update mode (IBus Read)
-KEY_IBW   = b"kIBW"   # adapter in firmware-update mode (IBus Write)
-KEY_IBU   = b"kIBU"   # adapter in firmware-update mode (IBus Upgrade)
-KEY_RS3   = b"kRs3"   # servo response payload prefix (legacy firmware)
-KEY_VS3   = b"kVs3"   # servo response payload prefix (new AT32 firmware)
+KEY_APP = b"kAPP"  # adapter ready after probe
+KEY_IBR = b"kIBR"  # adapter in firmware-update mode (IBus Read)
+KEY_IBW = b"kIBW"  # adapter in firmware-update mode (IBus Write)
+KEY_IBU = b"kIBU"  # adapter in firmware-update mode (IBus Upgrade)
+KEY_RS3 = b"kRs3"  # servo response payload prefix (legacy firmware)
+KEY_VS3 = b"kVs3"  # servo response payload prefix (new AT32 firmware)
 
 # DPC-20 handshake sequence message strings
-MSG_PROBE   = b"KWAU"    # probe: sent to detect adapter
-MSG_RESET   = b":A:A:A"  # ASCII reset string sent when adapter is in FW-update mode
-MSG_3PIN_57 = b"KP3S5"   # select HS-5/7XXX 3-pin mode
-MSG_3PIN_9  = b"KP3S9"   # select HSB-9XXX 3-pin mode
-MSG_3PIN    = b"KP3S"    # select generic 3-pin mode
-MSG_4PIN    = b"KP4S"    # select 4-pin mode
+MSG_PROBE = b"KWAU"  # probe: sent to detect adapter
+MSG_RESET = b":A:A:A"  # ASCII reset string sent when adapter is in FW-update mode
+MSG_3PIN_57 = b"KP3S5"  # select HS-5/7XXX 3-pin mode
+MSG_3PIN_9 = b"KP3S9"  # select HSB-9XXX 3-pin mode
+MSG_3PIN = b"KP3S"  # select generic 3-pin mode
+MSG_4PIN = b"KP4S"  # select 4-pin mode

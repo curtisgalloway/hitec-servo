@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 def crc8(data: bytes, init: int = 0xFF) -> int:
     """CRC-8 Dallas/Maxim 1-Wire, poly=0x8C (reflected x^8+x^5+x^4+1), init=0xFF."""
     crc = init

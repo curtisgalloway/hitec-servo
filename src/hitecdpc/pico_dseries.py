@@ -56,12 +56,12 @@ import rp2pio
 
 _HDR_QUERY = 0x96
 _HDR_REPLY = 0x69
-_OP_READ   = 0x00
-_OP_WRITE  = 0x02
+_OP_READ = 0x00
+_OP_WRITE = 0x02
 
 _BAUD = 115200
-_PIO_FREQ = _BAUD * 8          # 8× oversample; 1 bit = 8 PIO cycles
-_WRITE_SETTLE_S = 0.005        # 5 ms after write command (no servo ACK)
+_PIO_FREQ = _BAUD * 8  # 8× oversample; 1 bit = 8 PIO cycles
+_WRITE_SETTLE_S = 0.005  # 5 ms after write command (no servo ACK)
 
 # ── PIO programs ──────────────────────────────────────────────────────────────
 #
@@ -101,6 +101,7 @@ _RX_PROGRAM = adafruit_pioasm.Program(_RX_ASM)
 
 # ── Protocol helpers ──────────────────────────────────────────────────────────
 
+
 def decode_model_name(product_no, product_version):
     """Decode the servo model name from product_no (addr 0) and product_version (addr 2)."""
     text = ""
@@ -129,8 +130,16 @@ def decode_model_name(product_no, product_version):
         num7 = num6 // 1000
         text2 = str(num6 % 1000)
         text3 = "_"
-        text = {0: "DB", 1: "X", 2: "MDB", 3: "D", 4: "D",
-                5: "MD", 6: "D", 7: "MD"}.get(num7, "")
+        text = {
+            0: "DB",
+            1: "X",
+            2: "MDB",
+            3: "D",
+            4: "D",
+            5: "MD",
+            6: "D",
+            7: "MD",
+        }.get(num7, "")
     elif num5 == 4:
         text = "SG"
         text2 = str(num6)
@@ -155,7 +164,7 @@ def _build_read_query(servo_id, addr):
 
 def _build_write_cmd(servo_id, addr, value):
     # Little-endian: byte[4] = LSB, byte[5] = MSB (matches read response order).
-    low  = value & 0xFF
+    low = value & 0xFF
     high = (value >> 8) & 0xFF
     cs = (servo_id + addr + _OP_WRITE + low + high) & 0xFF
     return bytes([_HDR_QUERY, servo_id, addr, _OP_WRITE, low, high, cs])
@@ -178,6 +187,7 @@ def _parse_read_response(addr, data):
 
 
 # ── State-machine helpers ─────────────────────────────────────────────────────
+
 
 def _make_tx_sm(signal_pin):
     return rp2pio.StateMachine(
@@ -209,6 +219,7 @@ def _make_rx_sm(signal_pin):
 
 
 # ── Public class ──────────────────────────────────────────────────────────────
+
 
 class DServoComm:
     """
@@ -286,8 +297,8 @@ class DServoComm:
 
     def save_config(self) -> None:
         """Persist current register values to the servo's flash memory."""
-        self.write_register(112, 1)   # ADDR_CONFIG_SAVE
+        self.write_register(112, 1)  # ADDR_CONFIG_SAVE
 
     def restore_factory_defaults(self) -> None:
         """Restore factory defaults (irreversible until manually reconfigured)."""
-        self.write_register(110, 1)   # ADDR_FACTORY_DEFAULT
+        self.write_register(110, 1)  # ADDR_FACTORY_DEFAULT
