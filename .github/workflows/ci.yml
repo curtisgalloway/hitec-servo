@@ -34,6 +34,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install libudev (required by serialport on Linux)
+        run: sudo apt-get install -y libudev-dev
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
