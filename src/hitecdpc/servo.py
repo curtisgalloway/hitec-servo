@@ -129,7 +129,7 @@ class HitecServo:
 
     def get_version(self) -> int:
         """Read firmware version byte."""
-        return self._read_raw(P.CMD_READ_VER, addr=0, data=0, offset=4)
+        return self._read_raw(P.CMD_READ_VER, addr=0, data=0, offset=self._data_offset)
 
     def set_position(self, microseconds: float) -> None:
         """Send a position command. *microseconds* is the PWM pulse width (e.g. 1500)."""
@@ -141,8 +141,15 @@ class HitecServo:
     # Transport helpers
     # ------------------------------------------------------------------
 
+    @property
+    def _data_offset(self) -> int:
+        # DPC-20 transport strips the kVs3/kRs3 prefix; remaining bytes are
+        # [cmd_echo, addr_echo, VALUE, csum] → value at index 2.
+        # DPC-11 raw mode response has a 4-byte header before the value → index 4.
+        return 2 if self._mode == "dpc20" else 4
+
     def _read8(self, addr: int) -> int:
-        return self._read_raw(P.CMD_READ_8, addr=addr, data=0, offset=4)
+        return self._read_raw(P.CMD_READ_8, addr=addr, data=0, offset=self._data_offset)
 
     def _write_sram(self, addr: int, value: int) -> None:
         for _ in range(3):
