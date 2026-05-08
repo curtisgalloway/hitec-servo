@@ -60,9 +60,7 @@ enum Command {
     Dump,
 
     /// Read one register by name or address (decimal or 0x hex)
-    Read {
-        register: String,
-    },
+    Read { register: String },
 
     /// Write a 16-bit value to a register by name or address
     Write {
@@ -129,7 +127,10 @@ fn cmd_dump(t: &mut DSeriesTransport, use_json: bool) {
     let mut results = serde_json::Map::new();
 
     if !use_json {
-        println!("{:<24} {:>4}  {:>7}  {:>8}", "REGISTER", "ADDR", "VALUE", "HEX");
+        println!(
+            "{:<24} {:>4}  {:>7}  {:>8}",
+            "REGISTER", "ADDR", "VALUE", "HEX"
+        );
         println!("{}", "-".repeat(48));
     }
 
@@ -159,7 +160,10 @@ fn cmd_dump(t: &mut DSeriesTransport, use_json: bool) {
     }
 
     if use_json {
-        println!("{}", json!({"command": "dump", "series": "d", "registers": results}));
+        println!(
+            "{}",
+            json!({"command": "dump", "series": "d", "registers": results})
+        );
     }
 }
 
@@ -197,7 +201,10 @@ fn cmd_write(t: &mut DSeriesTransport, token: &str, raw_value: &str, use_json: b
         };
         match parsed {
             Some(v) => v,
-            None => die2(format!("Invalid value {raw_value:?} — expected u16 (decimal or 0x hex)"), use_json),
+            None => die2(
+                format!("Invalid value {raw_value:?} — expected u16 (decimal or 0x hex)"),
+                use_json,
+            ),
         }
     };
     match t.write_register(addr, value) {
@@ -232,7 +239,10 @@ fn cmd_model_name(t: &mut DSeriesTransport, use_json: bool) {
     match t.read_model_name() {
         Ok(name) => {
             if use_json {
-                println!("{}", json!({"command": "model-name", "model": name, "error": null}));
+                println!(
+                    "{}",
+                    json!({"command": "model-name", "model": name, "error": null})
+                );
             } else {
                 println!("model: {name}");
             }
@@ -254,8 +264,7 @@ fn cmd_factory_reset(t: &mut DSeriesTransport, use_json: bool) {
     }
 }
 
-const DEFAULT_MONITOR_REGS: &[&str] =
-    &["position", "velocity", "torque", "voltage", "temperature"];
+const DEFAULT_MONITOR_REGS: &[&str] = &["position", "velocity", "torque", "voltage", "temperature"];
 
 fn cmd_monitor(t: &mut DSeriesTransport, interval: f64, reg_tokens: &[String], use_json: bool) {
     let regs: Vec<(&str, u8)> = if reg_tokens.is_empty() {
@@ -328,14 +337,15 @@ fn main() {
     match &cli.command {
         Command::Dump => cmd_dump(&mut transport, use_json),
         Command::Read { register } => cmd_read(&mut transport, register, use_json),
-        Command::Write { register, value, .. } => {
-            cmd_write(&mut transport, register, value, use_json)
-        }
+        Command::Write {
+            register, value, ..
+        } => cmd_write(&mut transport, register, value, use_json),
         Command::Save => cmd_save(&mut transport, use_json),
         Command::FactoryReset => cmd_factory_reset(&mut transport, use_json),
         Command::ModelName => cmd_model_name(&mut transport, use_json),
-        Command::Monitor { interval, registers } => {
-            cmd_monitor(&mut transport, *interval, registers, use_json)
-        }
+        Command::Monitor {
+            interval,
+            registers,
+        } => cmd_monitor(&mut transport, *interval, registers, use_json),
     }
 }

@@ -17,16 +17,16 @@
 Addresses and encodings confirmed from frmWin5xxx7xxx.cs decompilation.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class Register:
     sram_addr: int
-    ee_addr: int | None        # EEPROM mirror address; None = no persistent copy
-    is_16bit: bool = False     # True → read two consecutive bytes, assemble big-endian
-    scale: float = 1.0         # multiply raw value by scale to get meaningful units
-    unit: str = ""             # human-readable unit string
+    ee_addr: int | None  # EEPROM mirror address; None = no persistent copy
+    is_16bit: bool = False  # True → read two consecutive bytes, assemble big-endian
+    scale: float = 1.0  # multiply raw value by scale to get meaningful units
+    unit: str = ""  # human-readable unit string
     description: str = ""
 
 
@@ -72,15 +72,15 @@ _REGS: dict[str, Register] = {
 
 # Alternative names users might pass
 _ALIASES: dict[str, str] = {
-    "dead_band":  "deadband",
-    "Dead Band":  "deadband",
-    "kp-min":     "kp_min",
-    "kp-max":     "kp_max",
+    "dead_band": "deadband",
+    "Dead Band": "deadband",
+    "kp-min": "kp_min",
+    "kp-max": "kp_max",
 }
 
 # SRAM addr 96-116 = model name (21 ASCII bytes), read one byte at a time with cmd 'a'
 MODEL_NAME_START = 96
-MODEL_NAME_END   = 116
+MODEL_NAME_END = 116
 
 
 def get(name: str) -> Register:
