@@ -12,14 +12,18 @@ def test_all_registers_have_valid_sram_addr():
 def test_ee_addrs_in_upper_bank():
     for name, reg in R.all_registers().items():
         if reg.ee_addr is not None:
-            assert 128 <= reg.ee_addr <= 255, f"{name}: ee_addr {reg.ee_addr} not in EEPROM bank"
+            assert 128 <= reg.ee_addr <= 255, (
+                f"{name}: ee_addr {reg.ee_addr} not in EEPROM bank"
+            )
 
 
 def test_16bit_registers_have_even_sram_addr():
     for name, reg in R.all_registers().items():
         if reg.is_16bit:
             # Pairs must not overlap other entries
-            assert reg.sram_addr + 1 <= 127, f"{name}: 16-bit register overflows SRAM bank"
+            assert reg.sram_addr + 1 <= 127, (
+                f"{name}: 16-bit register overflows SRAM bank"
+            )
 
 
 def test_no_sram_addr_collisions():

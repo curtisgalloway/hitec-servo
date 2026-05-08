@@ -95,12 +95,14 @@ class DPC20Transport(Transport):
     Both are tried on every read.
     """
 
-    _READ_TIMEOUT = 2.0   # seconds per read attempt (AT32 firmware can take >500 ms to reply)
-    _MAX_READ     = 256
+    _READ_TIMEOUT = (
+        2.0  # seconds per read attempt (AT32 firmware can take >500 ms to reply)
+    )
+    _MAX_READ = 256
 
     # Response mux values to try, in preference order
     _RESPONSE_MUXES = (9, P.MUX_RESPONSE)
-    _RESPONSE_KEYS  = (P.KEY_VS3, P.KEY_RS3)
+    _RESPONSE_KEYS = (P.KEY_VS3, P.KEY_RS3)
 
     def __init__(
         self,
@@ -109,8 +111,9 @@ class DPC20Transport(Transport):
         four_pin: bool = False,
         series: str = "57",
     ) -> None:
-        self._ser = serial.Serial(port, baud, timeout=self._READ_TIMEOUT,
-                                  dsrdtr=False, rtscts=False)
+        self._ser = serial.Serial(
+            port, baud, timeout=self._READ_TIMEOUT, dsrdtr=False, rtscts=False
+        )
         self._four_pin = four_pin
         self._series = series
         self._connect()
@@ -132,7 +135,9 @@ class DPC20Transport(Transport):
             for mux in self._RESPONSE_MUXES:
                 payload = P.parse_stxetx(raw, mux)
                 if payload is not None and payload[:4] in self._RESPONSE_KEYS:
-                    return payload[4:]  # strip key prefix; return [cmd, addr, value, csum]
+                    return payload[
+                        4:
+                    ]  # strip key prefix; return [cmd, addr, value, csum]
         return None
 
     def close(self) -> None:
@@ -178,7 +183,7 @@ class DPC20Transport(Transport):
         for mux in (9, P.MUX_HANDSHAKE):
             probe_payload = P.parse_stxetx(raw, mux)
             if probe_payload:
-                new_firmware = (mux == 9)
+                new_firmware = mux == 9
                 break
 
         if probe_payload and probe_payload[:4] in (P.KEY_IBR, P.KEY_IBW, P.KEY_IBU):

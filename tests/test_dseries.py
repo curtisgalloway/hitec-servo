@@ -19,6 +19,7 @@ from hitecdpc.dseries import (
 
 # ── build_read_query ──────────────────────────────────────────────────────────
 
+
 def test_read_query_header_and_op():
     q = build_read_query(servo_id=0, addr=0x0C)
     assert q[0] == HDR_QUERY
@@ -46,6 +47,7 @@ def test_read_query_matches_read_position_py():
 
 
 # ── build_write_cmd ───────────────────────────────────────────────────────────
+
 
 def test_write_cmd_header_and_op():
     c = build_write_cmd(servo_id=0, addr=0x32, value=1)
@@ -93,9 +95,10 @@ def test_write_cmd_servo_id_in_checksum():
 
 # ── parse_read_response ───────────────────────────────────────────────────────
 
+
 def _make_response(addr, value, servo_id=0, mystery=0):
     """Build a valid synthetic read response."""
-    low  = value & 0xFF
+    low = value & 0xFF
     high = (value >> 8) & 0xFF
     cs = (mystery + addr + OP_WRITE + low + high) & 0xFF
     return bytes([HDR_REPLY, mystery, addr, OP_WRITE, low, high, cs])
@@ -130,7 +133,7 @@ def test_parse_bad_header():
 
 
 def test_parse_short_response():
-    _, err = parse_read_response(0x0C, b"\x69\x00\x0C")
+    _, err = parse_read_response(0x0C, b"\x69\x00\x0c")
     assert err is not None
     assert "short" in err
 
@@ -144,13 +147,14 @@ def test_parse_addr_mismatch():
 
 def test_parse_bad_checksum():
     resp = bytearray(_make_response(0x0C, 100))
-    resp[-1] ^= 0xFF   # corrupt checksum
+    resp[-1] ^= 0xFF  # corrupt checksum
     _, err = parse_read_response(0x0C, bytes(resp))
     assert err is not None
     assert "checksum" in err
 
 
 # ── register map ─────────────────────────────────────────────────────────────
+
 
 def test_get_reg_position():
     assert get_reg("position") == 12
@@ -171,22 +175,28 @@ def test_baud_constant():
 
 def test_all_reg_addrs_even():
     from hitecdpc.dseries import REGS
+
     for name, addr in REGS.items():
-        assert addr % 2 == 0, f"{name}: address {addr} is not even (all D-series regs are 16-bit)"
+        assert addr % 2 == 0, (
+            f"{name}: address {addr} is not even (all D-series regs are 16-bit)"
+        )
 
 
 def test_all_reg_names_unique():
     from hitecdpc.dseries import REGS
+
     assert len(REGS) == len(set(REGS.keys()))
 
 
 def test_all_reg_addrs_unique():
     from hitecdpc.dseries import REGS
+
     addrs = list(REGS.values())
     assert len(addrs) == len(set(addrs)), "duplicate register addresses"
 
 
 # ── decode_model_name ─────────────────────────────────────────────────────────
+
 
 def test_model_name_d646wp():
     # product_no=34646 (0x8756), product_version=4097 (0x1001)
@@ -210,6 +220,7 @@ def test_model_name_unknown():
 
 
 # ── baudrate constants ────────────────────────────────────────────────────────
+
 
 def test_baudrate_default_code():
     assert BAUDRATE_CODES[5] == 115_200

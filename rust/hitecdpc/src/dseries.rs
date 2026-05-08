@@ -228,12 +228,18 @@ pub const BAUDRATE_CODES: &[(u8, u32)] = &[
 
 /// Decode a baudrate register value (0–8) to the actual baud rate in bits/s.
 pub fn decode_baudrate(code: u16) -> Option<u32> {
-    BAUDRATE_CODES.iter().find(|(c, _)| *c as u16 == code).map(|(_, b)| *b)
+    BAUDRATE_CODES
+        .iter()
+        .find(|(c, _)| *c as u16 == code)
+        .map(|(_, b)| *b)
 }
 
 /// Encode a baud rate in bits/s to the register code, if supported.
 pub fn encode_baudrate(baud: u32) -> Option<u8> {
-    BAUDRATE_CODES.iter().find(|(_, b)| *b == baud).map(|(c, _)| *c)
+    BAUDRATE_CODES
+        .iter()
+        .find(|(_, b)| *b == baud)
+        .map(|(c, _)| *c)
 }
 
 // ── Error type ────────────────────────────────────────────────────────────────
@@ -381,15 +387,25 @@ pub fn build_write_cmd(servo_id: u8, addr: u8, value: u16) -> [u8; 7] {
 /// The value is little-endian: `lsb | (msb << 8)`.
 pub fn parse_read_response(addr: u8, data: &[u8]) -> Result<u16, Error> {
     if data.len() < 7 {
-        return Err(Error::ShortResponse { got: data.len(), expected: 7 });
+        return Err(Error::ShortResponse {
+            got: data.len(),
+            expected: 7,
+        });
     }
-    let (hdr, mystery, addr2, _op, lsb, msb, cs) =
-        (data[0], data[1], data[2], data[3], data[4], data[5], data[6]);
+    let (hdr, mystery, addr2, _op, lsb, msb, cs) = (
+        data[0], data[1], data[2], data[3], data[4], data[5], data[6],
+    );
     if hdr != HDR_REPLY {
-        return Err(Error::BadHeader { got: hdr, expected: HDR_REPLY });
+        return Err(Error::BadHeader {
+            got: hdr,
+            expected: HDR_REPLY,
+        });
     }
     if addr2 != addr {
-        return Err(Error::AddrMismatch { got: addr2, expected: addr });
+        return Err(Error::AddrMismatch {
+            got: addr2,
+            expected: addr,
+        });
     }
     let expected_cs = mystery
         .wrapping_add(addr2)
@@ -397,7 +413,10 @@ pub fn parse_read_response(addr: u8, data: &[u8]) -> Result<u16, Error> {
         .wrapping_add(lsb)
         .wrapping_add(msb);
     if cs != expected_cs {
-        return Err(Error::ChecksumMismatch { got: cs, expected: expected_cs });
+        return Err(Error::ChecksumMismatch {
+            got: cs,
+            expected: expected_cs,
+        });
     }
     Ok((lsb as u16) | ((msb as u16) << 8))
 }
@@ -436,7 +455,11 @@ mod transport_impl {
             let port = serialport::new(path, BAUD)
                 .timeout(Duration::from_millis(100))
                 .open()?;
-            Ok(Self { port, servo_id, echo_cancel: true })
+            Ok(Self {
+                port,
+                servo_id,
+                echo_cancel: true,
+            })
         }
 
         /// Override the echo-cancel setting (builder style).
@@ -525,135 +548,135 @@ pub use transport_impl::DSeriesTransport;
 /// Used by the CLI for `dump` output and register-name lookup.
 pub const ALL_REGS: &[(&str, u8)] = &[
     // Telemetry (read-only)
-    ("product_no",              regs::PRODUCT_NO),
-    ("product_version",         regs::PRODUCT_VERSION),
-    ("firmware_version",        regs::FIRMWARE_VERSION),
-    ("ic_serial_sub",           regs::IC_SERIAL_SUB),
-    ("ic_serial_main",          regs::IC_SERIAL_MAIN),
-    ("status",                  regs::STATUS),
-    ("position",                regs::POSITION),
-    ("velocity",                regs::VELOCITY),
-    ("torque",                  regs::TORQUE),
-    ("voltage",                 regs::VOLTAGE),
-    ("temperature",             regs::TEMPERATURE),
-    ("current",                 regs::CURRENT),
-    ("position_new",            regs::POSITION_NEW),
-    ("position_in_new",         regs::POSITION_IN_NEW),
+    ("product_no", regs::PRODUCT_NO),
+    ("product_version", regs::PRODUCT_VERSION),
+    ("firmware_version", regs::FIRMWARE_VERSION),
+    ("ic_serial_sub", regs::IC_SERIAL_SUB),
+    ("ic_serial_main", regs::IC_SERIAL_MAIN),
+    ("status", regs::STATUS),
+    ("position", regs::POSITION),
+    ("velocity", regs::VELOCITY),
+    ("torque", regs::TORQUE),
+    ("voltage", regs::VOLTAGE),
+    ("temperature", regs::TEMPERATURE),
+    ("current", regs::CURRENT),
+    ("position_new", regs::POSITION_NEW),
+    ("position_in_new", regs::POSITION_IN_NEW),
     // Parameter version
-    ("param_version_1",         regs::PARAM_VERSION_1),
-    ("param_version_2",         regs::PARAM_VERSION_2),
+    ("param_version_1", regs::PARAM_VERSION_1),
+    ("param_version_2", regs::PARAM_VERSION_2),
     // User data
-    ("user_1",                  regs::USER_1),
-    ("user_2",                  regs::USER_2),
-    ("user_3",                  regs::USER_3),
+    ("user_1", regs::USER_1),
+    ("user_2", regs::USER_2),
+    ("user_3", regs::USER_3),
     // Identity / bus config
-    ("servo_type",              regs::SERVO_TYPE),
-    ("servo_id",                regs::SERVO_ID),
-    ("baudrate",                regs::BAUDRATE),
-    ("signal_mode",             regs::SIGNAL_MODE),
-    ("simple_return_delay",     regs::SIMPLE_RETURN_DELAY),
-    ("normal_return_delay",     regs::NORMAL_RETURN_DELAY),
+    ("servo_type", regs::SERVO_TYPE),
+    ("servo_id", regs::SERVO_ID),
+    ("baudrate", regs::BAUDRATE),
+    ("signal_mode", regs::SIGNAL_MODE),
+    ("simple_return_delay", regs::SIMPLE_RETURN_DELAY),
+    ("normal_return_delay", regs::NORMAL_RETURN_DELAY),
     // SmartSense
-    ("vib_sign_change_margin",  regs::VIB_SIGN_CHANGE_MARGIN),
-    ("vib_min_max_margin",      regs::VIB_MIN_MAX_MARGIN),
-    ("vib_good_check_no",       regs::VIB_GOOD_CHECK_NO),
-    ("vib_speed_check_no",      regs::VIB_SPEED_CHECK_NO),
-    ("vib_d_gain_min",          regs::VIB_D_GAIN_MIN),
+    ("vib_sign_change_margin", regs::VIB_SIGN_CHANGE_MARGIN),
+    ("vib_min_max_margin", regs::VIB_MIN_MAX_MARGIN),
+    ("vib_good_check_no", regs::VIB_GOOD_CHECK_NO),
+    ("vib_speed_check_no", regs::VIB_SPEED_CHECK_NO),
+    ("vib_d_gain_min", regs::VIB_D_GAIN_MIN),
     // Power / safety
-    ("power_config",            regs::POWER_CONFIG),
-    ("emergency",               regs::EMERGENCY),
-    ("action_mode",             regs::ACTION_MODE),
-    ("failsafe",                regs::FAILSAFE),
+    ("power_config", regs::POWER_CONFIG),
+    ("emergency", regs::EMERGENCY),
+    ("action_mode", regs::ACTION_MODE),
+    ("failsafe", regs::FAILSAFE),
     // Motion limits
-    ("deadband",                regs::DEADBAND),
-    ("position_max",            regs::POSITION_MAX),
-    ("position_min",            regs::POSITION_MIN),
-    ("velocity_max",            regs::VELOCITY_MAX),
-    ("torque_max",              regs::TORQUE_MAX),
-    ("voltage_max",             regs::VOLTAGE_MAX),
-    ("voltage_min",             regs::VOLTAGE_MIN),
-    ("temperature_max",         regs::TEMPERATURE_MAX),
-    ("direction",               regs::DIRECTION),
+    ("deadband", regs::DEADBAND),
+    ("position_max", regs::POSITION_MAX),
+    ("position_min", regs::POSITION_MIN),
+    ("velocity_max", regs::VELOCITY_MAX),
+    ("torque_max", regs::TORQUE_MAX),
+    ("voltage_max", regs::VOLTAGE_MAX),
+    ("voltage_min", regs::VOLTAGE_MIN),
+    ("temperature_max", regs::TEMPERATURE_MAX),
+    ("direction", regs::DIRECTION),
     // Motion tuning
-    ("start_speed",             regs::START_SPEED),
-    ("power_down_time",         regs::POWER_DOWN_TIME),
-    ("position_slope",          regs::POSITION_SLOPE),
-    ("vib_deadband_min",        regs::VIB_DEADBAND_MIN),
-    ("vib_deadband_max",        regs::VIB_DEADBAND_MAX),
-    ("vib_deadband_delay",      regs::VIB_DEADBAND_DELAY),
-    ("vib_deadband_p_gain",     regs::VIB_DEADBAND_P_GAIN),
+    ("start_speed", regs::START_SPEED),
+    ("power_down_time", regs::POWER_DOWN_TIME),
+    ("position_slope", regs::POSITION_SLOPE),
+    ("vib_deadband_min", regs::VIB_DEADBAND_MIN),
+    ("vib_deadband_max", regs::VIB_DEADBAND_MAX),
+    ("vib_deadband_delay", regs::VIB_DEADBAND_DELAY),
+    ("vib_deadband_p_gain", regs::VIB_DEADBAND_P_GAIN),
     // Control
-    ("factory_default",         regs::FACTORY_DEFAULT),
-    ("config_save",             regs::CONFIG_SAVE),
-    ("lock",                    regs::LOCK),
+    ("factory_default", regs::FACTORY_DEFAULT),
+    ("config_save", regs::CONFIG_SAVE),
+    ("lock", regs::LOCK),
     // Protocol timing
-    ("rx_byte_interval",        regs::RX_BYTE_INTERVAL),
-    ("simple_return_limit_time",regs::SIMPLE_RETURN_LIMIT_TIME),
-    ("pwm_ext_delay_time",      regs::PWM_EXT_DELAY_TIME),
-    ("pwm_normal_ack_min",      regs::PWM_NORMAL_ACK_MIN),
-    ("pwm_normal_hold_limit",   regs::PWM_NORMAL_HOLD_LIMIT),
+    ("rx_byte_interval", regs::RX_BYTE_INTERVAL),
+    ("simple_return_limit_time", regs::SIMPLE_RETURN_LIMIT_TIME),
+    ("pwm_ext_delay_time", regs::PWM_EXT_DELAY_TIME),
+    ("pwm_normal_ack_min", regs::PWM_NORMAL_ACK_MIN),
+    ("pwm_normal_hold_limit", regs::PWM_NORMAL_HOLD_LIMIT),
     // Motor hardware
-    ("motor_turn_direction",    regs::MOTOR_TURN_DIRECTION),
-    ("motor_pwm_period",        regs::MOTOR_PWM_PERIOD),
-    ("motor_pwm_deadtime",      regs::MOTOR_PWM_DEADTIME),
+    ("motor_turn_direction", regs::MOTOR_TURN_DIRECTION),
+    ("motor_pwm_period", regs::MOTOR_PWM_PERIOD),
+    ("motor_pwm_deadtime", regs::MOTOR_PWM_DEADTIME),
     // PID
-    ("pid_p",                   regs::PID_P),
-    ("pid_d",                   regs::PID_D),
-    ("pid_i",                   regs::PID_I),
-    ("pid_deadband",            regs::PID_DEADBAND),
-    ("pos_min_max_margin",      regs::POS_MIN_MAX_MARGIN),
+    ("pid_p", regs::PID_P),
+    ("pid_d", regs::PID_D),
+    ("pid_i", regs::PID_I),
+    ("pid_deadband", regs::PID_DEADBAND),
+    ("pos_min_max_margin", regs::POS_MIN_MAX_MARGIN),
     // Calibration
-    ("position_4095",           regs::POSITION_4095),
-    ("position_0",              regs::POSITION_0),
+    ("position_4095", regs::POSITION_4095),
+    ("position_0", regs::POSITION_0),
     // Lock
-    ("pos_lock_limit",          regs::POS_LOCK_LIMIT),
-    ("pos_lock_time",           regs::POS_LOCK_TIME),
-    ("pos_lock_ratio",          regs::POS_LOCK_RATIO),
-    ("torque_lock_time",        regs::TORQUE_LOCK_TIME),
-    ("temper_lock_limit",       regs::TEMPER_LOCK_LIMIT),
-    ("temper_lock_time",        regs::TEMPER_LOCK_TIME),
+    ("pos_lock_limit", regs::POS_LOCK_LIMIT),
+    ("pos_lock_time", regs::POS_LOCK_TIME),
+    ("pos_lock_ratio", regs::POS_LOCK_RATIO),
+    ("torque_lock_time", regs::TORQUE_LOCK_TIME),
+    ("temper_lock_limit", regs::TEMPER_LOCK_LIMIT),
+    ("temper_lock_time", regs::TEMPER_LOCK_TIME),
     // Sampling / ADC
-    ("pid_sampling_time",       regs::PID_SAMPLING_TIME),
-    ("velocity_sampling_time",  regs::VELOCITY_SAMPLING_TIME),
-    ("hum_sampling_time",       regs::HUM_SAMPLING_TIME),
-    ("adc_sampling_time",       regs::ADC_SAMPLING_TIME),
+    ("pid_sampling_time", regs::PID_SAMPLING_TIME),
+    ("velocity_sampling_time", regs::VELOCITY_SAMPLING_TIME),
+    ("hum_sampling_time", regs::HUM_SAMPLING_TIME),
+    ("adc_sampling_time", regs::ADC_SAMPLING_TIME),
     // Temperature calibration
-    ("temper_25_deg",           regs::TEMPER_25_DEG),
-    ("temper_50_deg",           regs::TEMPER_50_DEG),
+    ("temper_25_deg", regs::TEMPER_25_DEG),
+    ("temper_50_deg", regs::TEMPER_50_DEG),
     // EPA calibration
-    ("pos_pwm_max",             regs::POS_PWM_MAX),
-    ("pos_pwm_min",             regs::POS_PWM_MIN),
-    ("pos_virtual_bit",         regs::POS_VIRTUAL_BIT),
-    ("pos_oversampling_bit",    regs::POS_OVERSAMPLING_BIT),
-    ("pid_pos_para_p_gain",     regs::PID_POS_PARA_P_GAIN),
-    ("motor_deadband_offset",   regs::MOTOR_DEADBAND_OFFSET),
-    ("i_comp_max",              regs::I_COMP_MAX),
-    ("motor_pwm_prescaler",     regs::MOTOR_PWM_PRESCALER),
-    ("pos_pwm_mid",             regs::POS_PWM_MID),
-    ("pwm_in_signal_range",     regs::PWM_IN_SIGNAL_RANGE),
-    ("sys_config",              regs::SYS_CONFIG),
+    ("pos_pwm_max", regs::POS_PWM_MAX),
+    ("pos_pwm_min", regs::POS_PWM_MIN),
+    ("pos_virtual_bit", regs::POS_VIRTUAL_BIT),
+    ("pos_oversampling_bit", regs::POS_OVERSAMPLING_BIT),
+    ("pid_pos_para_p_gain", regs::PID_POS_PARA_P_GAIN),
+    ("motor_deadband_offset", regs::MOTOR_DEADBAND_OFFSET),
+    ("i_comp_max", regs::I_COMP_MAX),
+    ("motor_pwm_prescaler", regs::MOTOR_PWM_PRESCALER),
+    ("pos_pwm_mid", regs::POS_PWM_MID),
+    ("pwm_in_signal_range", regs::PWM_IN_SIGNAL_RANGE),
+    ("sys_config", regs::SYS_CONFIG),
     // Extended
-    ("serial_sub",              regs::SERIAL_SUB),
-    ("vib_check_max_no",        regs::VIB_CHECK_MAX_NO),
-    ("vib_pwm_in_deadband",     regs::VIB_PWM_IN_DEADBAND),
-    ("vib_pwm_good_no",         regs::VIB_PWM_GOOD_NO),
-    ("pid_p_vib",               regs::PID_P_VIB),
-    ("pid_d_vib",               regs::PID_D_VIB),
+    ("serial_sub", regs::SERIAL_SUB),
+    ("vib_check_max_no", regs::VIB_CHECK_MAX_NO),
+    ("vib_pwm_in_deadband", regs::VIB_PWM_IN_DEADBAND),
+    ("vib_pwm_good_no", regs::VIB_PWM_GOOD_NO),
+    ("pid_p_vib", regs::PID_P_VIB),
+    ("pid_d_vib", regs::PID_D_VIB),
     // Target position limits
-    ("pos_target_limit_max",    regs::POS_TARGET_LIMIT_MAX),
-    ("pos_target_limit_min",    regs::POS_TARGET_LIMIT_MIN),
-    ("rx_packet_interval",      regs::RX_PACKET_INTERVAL),
+    ("pos_target_limit_max", regs::POS_TARGET_LIMIT_MAX),
+    ("pos_target_limit_min", regs::POS_TARGET_LIMIT_MIN),
+    ("rx_packet_interval", regs::RX_PACKET_INTERVAL),
     // Advanced / miscellaneous
-    ("torque_min",              regs::TORQUE_MIN),
-    ("pid_gain",                regs::PID_GAIN),
-    ("time_run",                regs::TIME_RUN),
-    ("pid_config",              regs::PID_CONFIG),
-    ("pz",                      regs::PZ),
-    ("fw_ver",                  regs::FW_VER),
-    ("ppm_conf_2",              regs::PPM_CONF_2),
-    ("speed_conf",              regs::SPEED_CONF),
-    ("sys_config_2",            regs::SYS_CONFIG_2),
-    ("ppm_conf",                regs::PPM_CONF),
+    ("torque_min", regs::TORQUE_MIN),
+    ("pid_gain", regs::PID_GAIN),
+    ("time_run", regs::TIME_RUN),
+    ("pid_config", regs::PID_CONFIG),
+    ("pz", regs::PZ),
+    ("fw_ver", regs::FW_VER),
+    ("ppm_conf_2", regs::PPM_CONF_2),
+    ("speed_conf", regs::SPEED_CONF),
+    ("sys_config_2", regs::SYS_CONFIG_2),
+    ("ppm_conf", regs::PPM_CONF),
 ];
 
 /// Resolve a name (or decimal / `0x`-hex address) to `(name, addr)`.
@@ -662,18 +685,29 @@ pub fn resolve_reg(token: &str) -> Result<(&'static str, u8), String> {
     if let Some(&(name, addr)) = ALL_REGS.iter().find(|(n, _)| *n == normalised) {
         return Ok((name, addr));
     }
-    let addr = if let Some(hex) = token.strip_prefix("0x").or_else(|| token.strip_prefix("0X")) {
+    let addr = if let Some(hex) = token
+        .strip_prefix("0x")
+        .or_else(|| token.strip_prefix("0X"))
+    {
         u8::from_str_radix(hex, 16).ok()
     } else {
         token.parse::<u8>().ok()
     };
     if let Some(addr) = addr {
-        let name = ALL_REGS.iter().find(|(_, a)| *a == addr).map(|(n, _)| *n).unwrap_or("(raw)");
+        let name = ALL_REGS
+            .iter()
+            .find(|(_, a)| *a == addr)
+            .map(|(n, _)| *n)
+            .unwrap_or("(raw)");
         return Ok((name, addr));
     }
     Err(format!(
         "Unknown register {token:?}. Known names: {}",
-        ALL_REGS.iter().map(|(n, _)| *n).collect::<Vec<_>>().join(", ")
+        ALL_REGS
+            .iter()
+            .map(|(n, _)| *n)
+            .collect::<Vec<_>>()
+            .join(", ")
     ))
 }
 
@@ -900,6 +934,10 @@ mod tests {
         let before = addrs.len();
         addrs.sort_unstable();
         addrs.dedup();
-        assert_eq!(addrs.len(), before, "duplicate register addresses in ALL_REGS");
+        assert_eq!(
+            addrs.len(),
+            before,
+            "duplicate register addresses in ALL_REGS"
+        );
     }
 }
