@@ -49,13 +49,14 @@ Offset  Field
   N+3   ETX  = (3 + mux) & 0xFF
 ```
 
-`mux` is a framing mode selector. Three values appear in the codebase:
+`mux` is a framing mode selector. Known values:
 
 | mux | STX  | ETX  | Usage |
 |-----|------|------|-------|
 |  0  | 0x02 | 0x03 | Handshake/probe packets (raw command strings) |
 |  7  | 0x09 | 0x0A | Host→adapter command packets |
-| 11  | 0x0D | 0x0E | Adapter→host servo response packets |
+|  9  | 0x0B | 0x0C | Adapter→host servo responses — **AT32 firmware (2024+)** |
+| 11  | 0x0D | 0x0E | Adapter→host servo responses — legacy CP210x firmware |
 
 ### CRC-8 algorithm
 
@@ -143,42 +144,82 @@ This is then wrapped in STX/ETX with mux=7, giving wire bytes:
 
 ## 6. DPC-20 Connection / Handshake Sequence
 
-1. **Probe:** Send `KWAU` (0x4B 0x57 0x41 0x55) in STX/ETX frame (mux=7).
+### 6.1 Hardware initialisation (AT32 firmware only)
+
+The AT32-based DPC-20 (2024+) requires a DTR False→True rising edge to
+activate. pyserial opens with DTR=True by default, so the host must
+explicitly clear DTR (and RTS) then assert DTR before sending any data:
+
+```
+DTR=False, RTS=False  →  wait 50 ms  →  DTR=True  →  wait 500 ms
+```
+
+Legacy CP210x-based units do not require this sequence.
+
+### 6.2 Probe and firmware detection
+
+1. **Probe:** Send `KWAU` (0x4B 0x57 0x41 0x55) wrapped in STX/ETX (mux=7).
 2. **Parse response:**
-   - Payload starts with `kAPP` → adapter ready, proceed to step 3.
-   - Payload starts with `kIBR`, `kIBW`, or `kIBU` → adapter is in firmware-
-     update mode. Send ASCII string `:A:A:A` on the raw serial port, close,
-     then re-open and retry.
-3. **Pin mode selection** (payload key sent via `send_message_packet`, mux=7):
-   | Series      | Key sent |
-   |-------------|----------|
-   | HS-5/7XXX   | `KP3S5`  |
-   | HSB-9XXX    | `KP3S9`  |
-   | Generic 3-pin | `KP3S` |
-   | 4-pin       | `KP4S`   |
-4. After `KP3S5` or `KP3S9`, send a zero data packet:
-   `send_serial_packet([0x00], count=1, f_return=false)`.
+   - `kAPP` at mux=9 → **AT32 firmware**; set `new_firmware=True`.
+   - `kAPP` at mux=0 → **legacy firmware**; set `new_firmware=False`.
+   - `kIBR` / `kIBW` / `kIBU` (either mux) → adapter is in firmware-update
+     mode. Send ASCII string `:A:A:A` raw, power-cycle DTR, and retry.
+   - No parseable response → treat as AT32 firmware (`new_firmware=True`).
+     **Do not default to legacy** — sending the zero-follow packet (step 4)
+     to AT32 firmware hangs the adapter until both USB and servo power are
+     removed.
+
+### 6.3 Pin mode selection
+
+Send one of the following keys via `send_message_packet` (mux=7):
+
+| Series        | Key sent |
+|---------------|----------|
+| HS-5/7XXX     | `KP3S5`  |
+| HSB-9XXX      | `KP3S9`  |
+| Generic 3-pin | `KP3S`   |
+| 4-pin         | `KP4S`   |
+
+### 6.4 Zero-follow packet (legacy firmware only)
+
+After `KP3S5` or `KP3S9` on **legacy firmware only**, send a zero data
+packet: `send_serial_packet([0x00], count=1, f_return=false)`.
+
+**AT32 firmware hangs permanently if this packet is sent.** Skip it
+whenever `new_firmware=True`.
 
 ---
 
 ## 7. Response Packet (DPC-20)
 
-Servo responses arrive framed with mux=11 (STX=0x0D, ETX=0x0E). Inside the
-frame the payload begins with the 4-byte ASCII key `kRs3`, followed by the
-response data:
+The DPC-20 adapter wraps the servo's TTL response in an STX/ETX frame and
+prefixes the payload with a 4-byte ASCII key identifying the firmware
+generation:
+
+| Key    | Firmware | Mux |
+|--------|----------|-----|
+| `kRs3` (0x6B 0x52 0x73 0x33) | Legacy CP210x firmware | 11 |
+| `kVs3` (0x6B 0x56 0x73 0x33) | AT32 firmware (2024+)  |  9 |
+
+Both keys use the same payload layout:
 
 ```
 Offset  Content
-0–3     "kRs3"  (0x6B 0x52 0x73 0x33)
-4       value_high (or 8-bit value for cmd 'a'/'g')
-5       value_low  (for cmd 'e'; high×256 + low = 16-bit value)
+0–3     key ("kRs3" or "kVs3")
+4       cmd_echo   (echoed command byte from the 4-byte servo packet)
+5       addr_echo  (echoed register address)
+6       value      (8-bit register value for cmd 'a'/'g')
+7       checksum   ((256 - (cmd + addr + value) % 256) % 256)
 ```
 
-The host reads responses via `read_serial_data(key="kRs3", more=11)`.
+The Python transport (`DPC20Transport.send`) strips the 4-byte key prefix
+before returning, so callers receive `[cmd_echo, addr_echo, value, csum]`
+with the value at index 2.
 
 For DPC-11 (raw mode), the response arrives as raw bytes in `return_p[]`
-without the `kRs3` wrapper; the value is still at `return_p[4]` (8-bit) or
-`return_p[4:5]` (16-bit), consistent with the DPC-20 layout.
+without the key wrapper; based on C# source analysis the value is at
+`return_p[4]`, implying the DPC-11 response has a 4-byte header before
+the servo bytes (format not confirmed without hardware).
 
 ---
 
@@ -265,14 +306,19 @@ alone; likely used for a different packet type.
 
 ## 10. Open Questions
 
-- Exact framing of DPC-11 raw responses (what are `return_p[0..3]` in the
-  raw response? Are they echoed command bytes, or a header?)
+- Exact framing of DPC-11 raw responses (what are `return_p[0..3]`? Are they
+  a header analogous to kRs3, or something else? Not confirmed without
+  DPC-11 hardware.)
 - Confirm which CRC-16 variant is used where (firmware upload path needs live
   capture or deeper trace of the `WriteRead_Value_w_file` methods).
 - Register addresses 55–56 and 67–68 appear in write sequences but have not
   been correlated to a UI control name.
 - HSB-9XXX and D-series register maps — separate forms (`frmWin9xxx`,
   `frmWinDxxx`) with similar but distinct register layouts.
+- HS-5086WP (brand-new unit) returned all-zero register values via DPC-20
+  (AT32 firmware). Whether this reflects a factory-blank EEPROM or a
+  servo-side protocol difference is not yet confirmed. The official DPC
+  software may write default values on first connect.
 
 ---
 
