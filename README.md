@@ -94,6 +94,12 @@ Run tests:
 uv run --with pyserial --with pytest pytest
 ```
 
+After cloning, activate the pre-commit hooks (runs ruff lint + format before every commit):
+
+```bash
+uvx pre-commit install
+```
+
 ---
 
 ## Rust crate
