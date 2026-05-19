@@ -20,6 +20,7 @@ Usage:
 
 PORT defaults to /dev/cu.usbmodem1101.
 """
+
 import sys
 import time
 import serial
