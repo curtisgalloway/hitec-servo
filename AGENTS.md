@@ -24,7 +24,9 @@ any platform, without the official Windows DPC software:
 - **`hitecdpc` CLI** (Rust) — the primary interface; produces structured JSON
   output suitable for agent use.  See [`docs/cli.md`](docs/cli.md).
 - **Python library** (`src/hitecdpc/`) — `DSeriesTransport` for D-series
-  direct connection; `HitecServo` for HS-5/7XXX and HSB-9XXX via DPC adapter.
+  direct connection.  DPC-20 transport is also implemented for future HS-5/7XXX
+  support (`transport.py`), but the high-level servo API for those series has not
+  yet been written.
 - **CircuitPython module** (`src/hitecdpc/pico_dseries.py`) — runs on a
   Raspberry Pi Pico with no extra inverter hardware.
 
@@ -33,8 +35,8 @@ any platform, without the official Windows DPC software:
 | Series | Adapter needed? | CLI support | Python support |
 |--------|----------------|-------------|----------------|
 | D-series (D485HW, D646WP, …) | No | Yes | Yes |
-| HS-5/7XXX | DPC-11 or DPC-20 | Not yet | Yes |
-| HSB-9XXX | DPC-11 or DPC-20 | Not yet | Yes |
+| HS-5/7XXX | DPC-11 or DPC-20 | Not yet | Not yet |
+| HSB-9XXX | DPC-11 or DPC-20 | Not yet | Not yet |
 
 ---
 
@@ -112,16 +114,6 @@ with DSeriesTransport("/dev/ttyUSB0", servo_id=0) as t:
     print("position:", value)
     t.write_register("deadband", 2)
     t.save_config()
-```
-
-For HS-5/7XXX via DPC adapter:
-
-```python
-from hitecdpc import HitecServo
-
-with HitecServo("/dev/ttyUSB0", mode="raw", series="57") as servo:
-    params = servo.read_all()
-    servo.write_register("deadband", 5)
 ```
 
 Run tests:
@@ -213,13 +205,12 @@ Bit  Meaning
 
 ```
 src/hitecdpc/          Python library
-  __init__.py          exports HitecServo, DSeriesTransport
+  __init__.py          exports DSeriesTransport
   crc.py               CRC-8
-  protocol.py          HS-5/7XXX packet framing
+  protocol.py          DPC packet framing (STX/ETX, KSO3, CRC)
   dseries.py           D-series protocol + CPython transport
   pico_dseries.py      Standalone CircuitPython module (copy to Pico)
-  registers.py         HS-5/7XXX register map
-  servo.py             HitecServo high-level class
+  registers.py         HS-5/7XXX register map (metadata, no transport)
   transport.py         RawTransport, DPC20Transport
 
 rust/                  Rust workspace
@@ -242,7 +233,9 @@ scripts/
 
 ## Known limitations
 
-- **HS-5/7XXX and HSB-9XXX are not yet in the Rust CLI.** Use the Python library with a DPC adapter.
+- **HS-5/7XXX and HSB-9XXX are not yet implemented.** The DPC-20 transport
+  (`DPC20Transport`) and HS-5xxx register metadata (`registers.py`) are in place;
+  a high-level servo API still needs to be written and tested against hardware.
 - **D-series requires a signal inverter** (or a Pico) — a plain USB-serial adapter will not work.
 - **Servo ID 0 is the factory default** for all D-series servos.  If multiple servos are on the same bus, assign each a unique ID before connecting them together.
 - **DPC-11 raw response format** — the `kRs3` header on raw DPC-11 responses is inferred from the DPC-20 path; not yet confirmed against live hardware.

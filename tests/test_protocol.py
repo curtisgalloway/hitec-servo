@@ -118,7 +118,7 @@ class TestServoPacketV2:
         assert pkt[0] == 0x96
 
     def test_read_csum_equals_addr(self):
-        for addr in [0x00, 0x02, 0x06, 0x5e, 0x9c]:
+        for addr in [0x00, 0x02, 0x06, 0x5E, 0x9C]:
             pkt = P.servo_packet_v2_read(addr)
             expected_csum = sum(pkt[1:4]) & 0xFF
             assert pkt[4] == expected_csum, f"csum mismatch for addr=0x{addr:02x}"
@@ -130,16 +130,16 @@ class TestServoPacketV2:
         assert inverted == bytes([0x69, 0xFF, 0xF9, 0xFF, 0xF9])
 
     def test_write_length(self):
-        assert len(P.servo_packet_v2_write(0x9c, 0x6400)) == 7
+        assert len(P.servo_packet_v2_write(0x9C, 0x6400)) == 7
 
     def test_write_cmd(self):
-        pkt = P.servo_packet_v2_write(0x9c, 0x6400)
+        pkt = P.servo_packet_v2_write(0x9C, 0x6400)
         assert pkt[0] == 0x96
 
     def test_write_csum_matches_capture(self):
         # From capture: write addr=0x9c, val_hi=0x64, val_lo=0x00, csum=0x02
-        pkt = P.servo_packet_v2_write(0x9c, 0x6400)
-        assert pkt[2] == 0x9c
+        pkt = P.servo_packet_v2_write(0x9C, 0x6400)
+        assert pkt[2] == 0x9C
         assert pkt[3] == 0x02
         assert pkt[4] == 0x64
         assert pkt[5] == 0x00
@@ -147,7 +147,7 @@ class TestServoPacketV2:
 
     def test_write_matches_capture(self):
         # Verified from capture: write addr=0x54, val=0xff0f inverted = [0x69, 0xff, 0xab, 0xff, 0xab, 0xf0, 0x9b]
-        pkt = P.servo_packet_v2_write(0x54, 0xff0f)
+        pkt = P.servo_packet_v2_write(0x54, 0xFF0F)
         inverted = bytes(~b & 0xFF for b in pkt)
         assert inverted[0] == 0x69  # ~CMD_V2
         assert inverted[2] == (~0x54) & 0xFF  # ~addr

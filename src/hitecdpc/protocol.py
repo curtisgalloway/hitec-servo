@@ -121,10 +121,10 @@ KEY_RS3 = b"kRs3"  # servo response payload prefix (legacy firmware)
 KEY_VS3 = b"kVs3"  # servo response payload prefix (new AT32 firmware)
 
 # DPC-20 handshake sequence message strings
-MSG_PROBE = b"KWAU"    # probe: sent to detect adapter
+MSG_PROBE = b"KWAU"  # probe: sent to detect adapter
 MSG_RESET = b":A:A:A"  # ASCII reset string sent when adapter is in FW-update mode
 MSG_3PIN_57 = b"KP3S5"  # select HS-5/7XXX 3-pin mode
-MSG_3PIN_9 = b"KP3S9"   # select HSB-9XXX 3-pin mode
-MSG_3PIN = b"KP3S"      # select generic 3-pin mode
-MSG_4PIN = b"KP4S"      # select 4-pin mode
-MSG_KP3I = b"KP3I00"    # v2: session init / read-mode heartbeat (AT32 firmware)
+MSG_3PIN_9 = b"KP3S9"  # select HSB-9XXX 3-pin mode
+MSG_3PIN = b"KP3S"  # select generic 3-pin mode
+MSG_4PIN = b"KP4S"  # select 4-pin mode
+MSG_KP3I = b"KP3I00"  # v2: session init / read-mode heartbeat (AT32 firmware)

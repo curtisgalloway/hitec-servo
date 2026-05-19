@@ -5,8 +5,7 @@ the official Windows software.
 
 **Status:** D-series (D485HW, D646WP, …) fully working — read, write, and
 monitor servos directly without any DPC adapter.  HS-5/7XXX and HSB-9XXX
-support is implemented in the Python library (requires a DPC-11 or DPC-20
-adapter) but not yet in the Rust CLI.
+support is not yet implemented.
 
 The wire protocol was recovered from static analysis of the official DPC
 software.  This project is an independent implementation; no Hitec code is
@@ -89,16 +88,6 @@ with DSeriesTransport("/dev/ttyUSB0", servo_id=0) as t:
     t.save_config()
 ```
 
-For HS-5/7XXX via a DPC-11 or DPC-20 adapter:
-
-```python
-from hitecdpc import HitecServo
-
-with HitecServo("/dev/ttyUSB0", mode="raw", series="57") as servo:
-    print(servo.get_model())
-    servo.write_register("deadband", 5)
-```
-
 Run tests:
 
 ```bash
@@ -160,9 +149,9 @@ HS-5/7XXX STX/ETX framing and CRC algorithms.
 src/hitecdpc/        Python library
   dseries.py         D-series protocol + transport
   pico_dseries.py    Standalone CircuitPython module
-  servo.py           HitecServo (HS-5/7XXX, HSB-9XXX)
-  protocol.py        HS-5/7XXX packet framing
-  registers.py       HS-5/7XXX register map
+  protocol.py        DPC packet framing (STX/ETX, KSO3, CRC)
+  registers.py       HS-5/7XXX register map (metadata)
+  transport.py       RawTransport, DPC20Transport
   crc.py             CRC-8
 
 rust/
