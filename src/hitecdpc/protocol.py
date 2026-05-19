@@ -21,13 +21,21 @@ See docs/protocol.md for the full specification.
 
 from .crc import crc8
 
-# Command codes (ASCII letters)
+# Command codes (ASCII letters) — legacy CP210x / DPC-11 protocol
 CMD_READ_8 = 0x61  # 'a' — read 8-bit SRAM register,  response at offset 4
 CMD_WRITE_8 = 0x62  # 'b' — write 8-bit SRAM register  (addr 0-127)
 CMD_WRITE_EE = 0x64  # 'd' — write 8-bit EEPROM register (addr 128-255)
 CMD_READ_16 = 0x65  # 'e' — read 16-bit register,      response at offsets 4-5
 CMD_SET_POS = 0x66  # 'f' — set servo position (16-bit PWM value)
 CMD_READ_VER = 0x67  # 'g' — read firmware version,     response at offset 4
+
+# v2 command code — DPC-20 AT32 firmware (2024+)
+# Both reads and writes use 0x96; packet length distinguishes them.
+# Reads:  [0x96, 0x00, addr, 0x00,            csum]   (5 bytes, want_reply=True)
+# Writes: [0x96, 0x00, addr, 0x02, val_hi, val_lo, csum]  (7 bytes, want_reply=False)
+# csum = sum(packet[1:]) & 0xFF
+# Response (after kVs3 key): [0x69, 0x00, addr, 0x02, val_hi, val_lo, csum, 0x00, 0x00]
+CMD_V2 = 0x96
 
 # STX/ETX mux values
 MUX_HANDSHAKE = 0  # STX=0x02, ETX=0x03 — probe packets
@@ -39,6 +47,20 @@ def servo_packet(cmd: int, addr: int, data: int) -> bytes:
     """Build a 4-byte servo command packet: [CMD, ADDR, DATA, CSUM]."""
     csum = (256 - (cmd + addr + data) % 256) % 256
     return bytes([cmd, addr, data, csum])
+
+
+def servo_packet_v2_read(addr: int) -> bytes:
+    """Build a 5-byte v2 read packet: [0x96, 0x00, addr, 0x00, csum]."""
+    csum = addr & 0xFF
+    return bytes([CMD_V2, 0x00, addr, 0x00, csum])
+
+
+def servo_packet_v2_write(addr: int, value: int) -> bytes:
+    """Build a 7-byte v2 write packet: [0x96, 0x00, addr, 0x02, val_hi, val_lo, csum]."""
+    val_hi = (value >> 8) & 0xFF
+    val_lo = value & 0xFF
+    csum = (addr + 0x02 + val_hi + val_lo) & 0xFF
+    return bytes([CMD_V2, 0x00, addr, 0x02, val_hi, val_lo, csum])
 
 
 def position_packet(pwm_raw: int) -> bytes:
@@ -99,9 +121,10 @@ KEY_RS3 = b"kRs3"  # servo response payload prefix (legacy firmware)
 KEY_VS3 = b"kVs3"  # servo response payload prefix (new AT32 firmware)
 
 # DPC-20 handshake sequence message strings
-MSG_PROBE = b"KWAU"  # probe: sent to detect adapter
+MSG_PROBE = b"KWAU"    # probe: sent to detect adapter
 MSG_RESET = b":A:A:A"  # ASCII reset string sent when adapter is in FW-update mode
 MSG_3PIN_57 = b"KP3S5"  # select HS-5/7XXX 3-pin mode
-MSG_3PIN_9 = b"KP3S9"  # select HSB-9XXX 3-pin mode
-MSG_3PIN = b"KP3S"  # select generic 3-pin mode
-MSG_4PIN = b"KP4S"  # select 4-pin mode
+MSG_3PIN_9 = b"KP3S9"   # select HSB-9XXX 3-pin mode
+MSG_3PIN = b"KP3S"      # select generic 3-pin mode
+MSG_4PIN = b"KP4S"      # select 4-pin mode
+MSG_KP3I = b"KP3I00"    # v2: session init / read-mode heartbeat (AT32 firmware)

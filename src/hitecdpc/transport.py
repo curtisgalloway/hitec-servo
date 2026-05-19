@@ -127,6 +127,11 @@ class DPC20Transport(Transport):
         frame = P.stxetx_frame(inner, P.MUX_COMMAND)
         for _ in range(_RETRIES):
             self._ser.reset_input_buffer()
+            # Windows DPC sends KP3I00 twice before every read; the AT32
+            # firmware requires recent heartbeats to stay in read mode.
+            if expect_reply and self._new_firmware:
+                self._send_message(P.MSG_KP3I)
+                self._send_message(P.MSG_KP3I)
             self._write(frame)
             time.sleep(_INTER_PACKET_SLEEP)
             if not expect_reply:
@@ -135,9 +140,7 @@ class DPC20Transport(Transport):
             for mux in self._RESPONSE_MUXES:
                 payload = P.parse_stxetx(raw, mux)
                 if payload is not None and payload[:4] in self._RESPONSE_KEYS:
-                    return payload[
-                        4:
-                    ]  # strip key prefix; return [cmd, addr, value, csum]
+                    return payload[4:]  # strip key prefix; caller gets servo bytes
         return None
 
     def close(self) -> None:
@@ -168,23 +171,28 @@ class DPC20Transport(Transport):
         self._ser.dtr = True
         time.sleep(0.5)
 
-        # Probe the adapter
-        self._send_message(P.MSG_PROBE)
-        time.sleep(0.15)
-        raw = self._ser.read(self._MAX_READ)
-
-        # Detect firmware generation from the probe response mux.
-        # New AT32 firmware (2024+) responds with mux=9 and kVs3 keys.
-        # Legacy firmware responds with mux=0 and kRs3 keys.
-        # If the probe yields no parseable response, assume new firmware —
-        # sending the zero-follow packet to unknown/new firmware hangs the adapter.
+        # Probe the adapter.
+        # Windows DPC always sends KP3S immediately before KWAU; the AT32
+        # firmware requires this pairing to produce a kAPP response.
+        # Legacy firmware also accepts this sequence.
+        # Try up to 30 cycles (Windows does the same) to give the adapter
+        # time to initialise its servo bus after a cold start.
         probe_payload = None
         new_firmware = True
-        for mux in (9, P.MUX_HANDSHAKE):
-            probe_payload = P.parse_stxetx(raw, mux)
-            if probe_payload:
-                new_firmware = mux == 9
-                break
+        for _ in range(30):
+            self._send_message(P.MSG_3PIN)  # KP3S — mode hint before probe
+            self._send_message(P.MSG_PROBE)  # KWAU — probe
+            time.sleep(0.015)
+            raw = self._ser.read(self._MAX_READ)
+            for mux in (9, P.MUX_HANDSHAKE):
+                probe_payload = P.parse_stxetx(raw, mux)
+                if probe_payload:
+                    new_firmware = mux == 9
+                    break
+            if probe_payload and probe_payload[:4] == P.KEY_APP:
+                break  # adapter is ready
+
+        self._new_firmware = new_firmware
 
         if probe_payload and probe_payload[:4] in (P.KEY_IBR, P.KEY_IBW, P.KEY_IBU):
             # Adapter is stuck in firmware-update mode; reset it
@@ -196,25 +204,31 @@ class DPC20Transport(Transport):
             self._ser.dtr = True
             time.sleep(0.010)
 
-        # Select pin/series mode
-        if self._four_pin:
-            mode_msg = P.MSG_4PIN
-            zero_follow = False
-        elif self._series == "9":
-            mode_msg = P.MSG_3PIN_9
-            zero_follow = True
-        elif self._series == "57":
-            mode_msg = P.MSG_3PIN_57
-            zero_follow = True
+        if new_firmware:
+            # AT32 firmware: the KP3S+KWAU loop above already selected generic
+            # 3-pin mode.  Just send KP3I00 to enter read mode.
+            self._send_message(P.MSG_KP3I)
+            time.sleep(0.05)
         else:
-            mode_msg = P.MSG_3PIN
-            zero_follow = False
+            # Legacy firmware: send the series-specific mode select and optional
+            # zero-follow packet (required for 57-series and 9-series legacy).
+            if self._four_pin:
+                mode_msg = P.MSG_4PIN
+                zero_follow = False
+            elif self._series == "9":
+                mode_msg = P.MSG_3PIN_9
+                zero_follow = True
+            elif self._series == "57":
+                mode_msg = P.MSG_3PIN_57
+                zero_follow = True
+            else:
+                mode_msg = P.MSG_3PIN
+                zero_follow = False
 
-        self._send_message(mode_msg)
-        # New firmware hangs if given the zero-follow packet; skip it.
-        if zero_follow and not new_firmware:
-            zero_pkt = P.stxetx_frame(
-                P.kso_wrapper(bytes([0x00]), four_pin=False, want_reply=False),
-                P.MUX_COMMAND,
-            )
-            self._write(zero_pkt)
+            self._send_message(mode_msg)
+            if zero_follow:
+                zero_pkt = P.stxetx_frame(
+                    P.kso_wrapper(bytes([0x00]), four_pin=False, want_reply=False),
+                    P.MUX_COMMAND,
+                )
+                self._write(zero_pkt)

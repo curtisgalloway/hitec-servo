@@ -318,13 +318,19 @@ def build_write_cmd(servo_id: int, addr: int, value: int) -> bytes:
 
 def parse_read_response(addr: int, data: bytes) -> tuple[int | None, str | None]:
     """
-    Validate a 7-byte read response and return (value, None) or (None, error).
+    Validate a read response and return (value, None) or (None, error).
 
-    Response layout: [0x69, mystery, addr, 0x02, low, high, checksum]
+    Response layout: [0x69, mystery, addr, 0x02, low, high, checksum, ...]
     Value is little-endian: low | (high << 8).
+    Accepts 7+ bytes; extra trailing bytes (DPC-20 pads with 0x00) are ignored.
     """
-    if len(data) != 7:
+    if len(data) < 7:
         return None, f"short response: {len(data)} bytes (expected 7)"
+    # DPC-20 occasionally prepends a 0x00 byte; scan to the HDR_REPLY marker.
+    start = next((i for i, b in enumerate(data) if b == HDR_REPLY), 0)
+    data = data[start : start + 7]
+    if len(data) < 7:
+        return None, f"short response after header scan: {len(data)} bytes"
     hdr, mystery, addr2, op, low, high, cs = data
     if hdr != HDR_REPLY:
         return None, f"bad header 0x{hdr:02X} (expected 0x{HDR_REPLY:02X})"

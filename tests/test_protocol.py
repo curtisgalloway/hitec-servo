@@ -109,6 +109,50 @@ class TestKSOWrapper:
         assert tail == bytes([10, 10, 20])
 
 
+class TestServoPacketV2:
+    def test_read_length(self):
+        assert len(P.servo_packet_v2_read(0x06)) == 5
+
+    def test_read_cmd(self):
+        pkt = P.servo_packet_v2_read(0x06)
+        assert pkt[0] == 0x96
+
+    def test_read_csum_equals_addr(self):
+        for addr in [0x00, 0x02, 0x06, 0x5e, 0x9c]:
+            pkt = P.servo_packet_v2_read(addr)
+            expected_csum = sum(pkt[1:4]) & 0xFF
+            assert pkt[4] == expected_csum, f"csum mismatch for addr=0x{addr:02x}"
+
+    def test_read_matches_capture(self):
+        # Verified from Cynthion capture: read addr=0x06 inverted = [0x69, 0xff, 0xf9, 0xff, 0xf9]
+        pkt = P.servo_packet_v2_read(0x06)
+        inverted = bytes(~b & 0xFF for b in pkt)
+        assert inverted == bytes([0x69, 0xFF, 0xF9, 0xFF, 0xF9])
+
+    def test_write_length(self):
+        assert len(P.servo_packet_v2_write(0x9c, 0x6400)) == 7
+
+    def test_write_cmd(self):
+        pkt = P.servo_packet_v2_write(0x9c, 0x6400)
+        assert pkt[0] == 0x96
+
+    def test_write_csum_matches_capture(self):
+        # From capture: write addr=0x9c, val_hi=0x64, val_lo=0x00, csum=0x02
+        pkt = P.servo_packet_v2_write(0x9c, 0x6400)
+        assert pkt[2] == 0x9c
+        assert pkt[3] == 0x02
+        assert pkt[4] == 0x64
+        assert pkt[5] == 0x00
+        assert pkt[6] == 0x02  # (0x9c + 0x02 + 0x64 + 0x00) & 0xFF = 0x02
+
+    def test_write_matches_capture(self):
+        # Verified from capture: write addr=0x54, val=0xff0f inverted = [0x69, 0xff, 0xab, 0xff, 0xab, 0xf0, 0x9b]
+        pkt = P.servo_packet_v2_write(0x54, 0xff0f)
+        inverted = bytes(~b & 0xFF for b in pkt)
+        assert inverted[0] == 0x69  # ~CMD_V2
+        assert inverted[2] == (~0x54) & 0xFF  # ~addr
+
+
 class TestPositionPacket:
     def test_center_position(self):
         # 1500 µs → pwm_raw = 6000 = 0x1770
