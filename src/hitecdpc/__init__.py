@@ -18,6 +18,5 @@ The command-line tool is the Rust binary `hitecdpc` (built from rust/).
 """
 
 from .dseries import DSeriesTransport
-from .servo import HitecServo
 
-__all__ = ["HitecServo", "DSeriesTransport"]
+__all__ = ["DSeriesTransport"]
