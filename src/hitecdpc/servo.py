@@ -145,13 +145,19 @@ class HitecServo:
 
     @property
     def _data_offset(self) -> int:
-        # DPC-20 transport strips the kVs3/kRs3 prefix; remaining bytes are
-        # [cmd_echo, addr_echo, VALUE, csum] → value at index 2.
-        # DPC-11 raw mode response has a 4-byte header before the value → index 4.
-        return 2 if self._mode == "dpc20" else 4
+        # v2 DPC-20 response after kVs3 strip: [0x69, 0x00, addr, 0x02, VAL_HI, ...] → 4.
+        # Raw DPC-11 response: 4-byte header before value → 4. Same for both.
+        return 4
 
     def _read8(self, addr: int) -> int:
-        return self._read_raw(P.CMD_READ_8, addr=addr, data=0, offset=self._data_offset)
+        if self._mode == "dpc20":
+            packet = P.servo_packet_v2_read(addr)
+        else:
+            packet = P.servo_packet(P.CMD_READ_8, addr=addr, data=0)
+        resp = self._transport.send(packet, expect_reply=True)
+        if resp is None or len(resp) <= self._data_offset:
+            raise TimeoutError(f"No response from servo (addr={addr})")
+        return resp[self._data_offset]
 
     def _write_sram(self, addr: int, value: int) -> None:
         for _ in range(3):

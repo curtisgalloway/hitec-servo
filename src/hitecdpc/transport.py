@@ -218,3 +218,8 @@ class DPC20Transport(Transport):
                 P.MUX_COMMAND,
             )
             self._write(zero_pkt)
+
+        # AT32 firmware requires KP3I00 to enter read mode before register reads.
+        if new_firmware:
+            self._send_message(P.MSG_KP3I)
+            time.sleep(0.05)
